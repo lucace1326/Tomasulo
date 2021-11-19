@@ -5,16 +5,24 @@ class inst:
         self.src1 = (src1)
         self.src2 = (src2)
         self.doneTime = 0
+        self.val1 = None
+        self.val2 = None
+
+    def setVals(self):
+        if("rf" in rat[int(self.src1)] and self.val1 == None):
+            self.val1 = registerFiles[int(self.src1)]
+        if("rf" in rat[int(self.src2)] and self.val2 == None):
+            self.val2 = registerFiles[int(self.src2)]
 
     def execute(self):
         if(self.opcode == 0):
-            return registerFiles[int(self.src1)] + registerFiles[int(self.src2)]
+            return self.val1 + self.val2
         if(self.opcode == 1):
-            return registerFiles[int(self.src1)] - registerFiles[int(self.src2)]
+            return self.val1 - self.val2
         if(self.opcode == 2):
-            return registerFiles[int(self.src1)] * registerFiles[int(self.src2)]
+            return self.val1 * self.val2
         if(self.opcode == 3):
-            return registerFiles[int(self.src1)] / registerFiles[int(self.src2)]
+            return self.val1 / self.val2
 
     def print(self):
         if(self.opcode == 0):
@@ -68,28 +76,41 @@ for cc in range(cycles+1):
         print(x.print())
     for x in mul_RS:
         print(x.print())
+        
 # broadcast
     if(dispatch_inst != None and cc == dispatch_inst.doneTime):
         rat[int(dispatch_inst.dest)] = "rf"+dispatch_inst.dest
         registerFiles[int(dispatch_inst.dest)] = dispatch_inst.execute()
-        add_RS.pop(0)
+        if(dispatch_inst.opcode == 0 or dispatch_inst.opcode == 1):
+            add_RS.pop(0)
+        else:
+            mul_RS.pop(0)
+        for x in add_RS:
+            x.setVals()
+        for x in mul_RS:
+            x.setVals()
         dispatch_inst = None
 
 # dispatch
-    if mul_RS:
-        if(rat[int(mul_RS[0].src1)] == "rf"+mul_RS[0].src1) and (rat[int(mul_RS[0].src2)] == "rf"+mul_RS[0].src2):
+    if mul_RS and dispatch_inst == None:
+        if(mul_RS[0].val1 != None) and (mul_RS[0].val2 != None):
             dispatch_inst = mul_RS[0]
-            dispatch_inst.doneTime = cc+2
+            if(dispatch_inst.opcode == 2):
+                dispatch_inst.doneTime = cc+10
+            elif(dispatch_inst.opcode == 3):
+                dispatch_inst.doneTime = cc+40
     elif add_RS and dispatch_inst == None:
-        if(rat[int(add_RS[0].src1)] == "rf"+add_RS[0].src1) and (rat[int(add_RS[0].src2)] == "rf"+add_RS[0].src2):
+        if(add_RS[0].val1 != None) and (add_RS[0].val2 != None):
             dispatch_inst = add_RS[0]
             dispatch_inst.doneTime = cc+2
+
 # issue
     if (instQueue):
         currentInstruction = instQueue.pop(0)
         if(currentInstruction.opcode == 0 or currentInstruction.opcode == 1):
             if(len(add_RS) < 3):
                 add_RS.append(currentInstruction)
+                currentInstruction.setVals()
                 rat[int(currentInstruction.dest)] = "RS"+str(len(add_RS))
             else:
                 instQueue.insert(0, currentInstruction)
@@ -97,6 +118,7 @@ for cc in range(cycles+1):
         elif(currentInstruction.opcode == 2):
             if(len(mul_RS) < 2):
                 mul_RS.append(currentInstruction)
+                currentInstruction.setVals()
                 rat[int(currentInstruction.dest)] = "RS"+str(len(mul_RS)+3)
             else:
                 instQueue.insert(0, currentInstruction)
@@ -104,6 +126,7 @@ for cc in range(cycles+1):
         elif(currentInstruction.opcode == 3):
             if(len(mul_RS) < 2):
                 mul_RS.append(currentInstruction)
+                currentInstruction.setVals()
                 rat[int(currentInstruction.dest)] = "RS"+str(len(mul_RS)+3)
             else:
                 instQueue.insert(0, currentInstruction)
