@@ -1,4 +1,4 @@
-class inst:
+class instr:
     def __init__(self, opcode, dest, src1, src2):
         self.opcode = int(opcode)
         self.dest = (dest)
@@ -40,7 +40,8 @@ registerFiles = []
 rat = []
 add_RS = []
 mul_RS = []
-dispatch_inst = None
+dispatch_inst_ADD = None
+dispatch_inst_MUL = None
 with open('myfile.txt') as fp:
     lines = fp.readlines()
     numInst = int(lines[0])
@@ -49,7 +50,7 @@ with open('myfile.txt') as fp:
     # print(cycles)
     for x in range(numInst):
         vars = lines[x+2].split()
-        instQueue.append(inst(vars[0], vars[1], vars[2], vars[3]))
+        instQueue.append(instr(vars[0], vars[1], vars[2], vars[3]))
         # print(lines[x+2])
     i = 0
     for item in lines[numInst+2:]:
@@ -78,31 +79,43 @@ for cc in range(cycles+1):
         print(x.print())
         
 # broadcast
-    if(dispatch_inst != None and cc == dispatch_inst.doneTime):
-        rat[int(dispatch_inst.dest)] = "rf"+dispatch_inst.dest
-        registerFiles[int(dispatch_inst.dest)] = dispatch_inst.execute()
-        if(dispatch_inst.opcode == 0 or dispatch_inst.opcode == 1):
-            add_RS.pop(0)
-        else:
-            mul_RS.pop(0)
+    if((dispatch_inst_MUL != None) and cc == dispatch_inst_MUL.doneTime):
+        print("----------->>BROADCAST: " + dispatch_inst_MUL.print())
+        rat[int(dispatch_inst_MUL.dest)] = "rf"+dispatch_inst_MUL.dest
+        registerFiles[int(dispatch_inst_MUL.dest)] = dispatch_inst_MUL.execute()
+        mul_RS.remove(dispatch_inst_MUL)
         for x in add_RS:
             x.setVals()
         for x in mul_RS:
             x.setVals()
-        dispatch_inst = None
+        dispatch_inst_MUL = None
+    elif((dispatch_inst_ADD != None) and cc == dispatch_inst_ADD.doneTime):
+        print("----------->>BROADCAST: " + dispatch_inst_ADD.print())
+        rat[int(dispatch_inst_ADD.dest)] = "rf"+dispatch_inst_ADD.dest
+        registerFiles[int(dispatch_inst_ADD.dest)] = dispatch_inst_ADD.execute()
+        add_RS.remove(dispatch_inst_ADD)
+        for x in add_RS:
+            x.setVals()
+        for x in mul_RS:
+            x.setVals()
+        dispatch_inst_ADD = None        
 
 # dispatch
-    if mul_RS and dispatch_inst == None:
-        if(mul_RS[0].val1 != None) and (mul_RS[0].val2 != None):
-            dispatch_inst = mul_RS[0]
-            if(dispatch_inst.opcode == 2):
-                dispatch_inst.doneTime = cc+10
-            elif(dispatch_inst.opcode == 3):
-                dispatch_inst.doneTime = cc+40
-    elif add_RS and dispatch_inst == None:
-        if(add_RS[0].val1 != None) and (add_RS[0].val2 != None):
-            dispatch_inst = add_RS[0]
-            dispatch_inst.doneTime = cc+2
+    for instr in mul_RS:
+        if( (dispatch_inst_MUL == None) and (instr.val1 != None) and (instr.val2 != None)):
+            print("----------->>DISPATCH: " + instr.print())
+            dispatch_inst_MUL = instr
+            if(dispatch_inst_MUL.opcode == 2):
+                dispatch_inst_MUL.doneTime = cc+10
+            elif(dispatch_inst_MUL.opcode == 3):
+                dispatch_inst_MUL.doneTime = cc+40
+            break
+    for instr in add_RS:
+        if( (dispatch_inst_ADD == None) and (instr.val1 != None) and (instr.val2 != None)):
+            print("----------->>DISPATCH: " + instr.print())
+            dispatch_inst_ADD = instr
+            dispatch_inst_ADD.doneTime = cc+2
+            break
 
 # issue
     if (instQueue):
